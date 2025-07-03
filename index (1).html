@@ -1,15 +1,189 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
- 
-
-  <title>HTML</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Image Editor Pro</title>
+  <style>
+    body {
+      margin: 0;
+      background: #111;
+      font-family: 'Segoe UI', sans-serif;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;@#42445A
+      padding: 10px;
+    }
+    h1 {
+      color: #0ff;
+      text-shadow: 0 0 5px #0ff;
+      font-size: 1.8rem;
+    }
+    .editor {
+      width: 100%;
+      max-width: 500px;
+      background: #1a1a1a;
+      padding: 15px;
+      border-radius: 15px;
+      box-shadow: 0 0 10px #0ff4;
+    }
+    canvas {
+      width: 100%;
+      margin-top: 10px;
+      border-radius: 10px;
+    }
+    input[type="file"], select, input[type="range"], button {
+      width: 100%;
+      margin: 5px 0;
+      padding: 10px;
+      border: 2px solid #0ff;
+      border-radius: 10px;
+      background: transparent;
+      color: white;
+      font-size: 14px;
+      transition: 0.3s;
+    }
+    button:hover {
+      background: #0ff;
+      color: black;
+      transform: scale(1.03);
+    }
+    #cropArea {
+      border: 2px dashed white;
+      position: absolute;
+      pointer-events: none;
+      display: none;
+    }
+  </style>
 </head>
-<link rel="stylesheet" href=".style.css>
 <body>
-  <h1> coding </h1>
-  
-  <p>this is the ai</p>
-  
-  </body>
+  <h1>AI Image Editor Pro</h1>
+  <div class="editor">
+    <input type="file" id="upload" accept="image/*">
+    <canvas id="canvas"></canvas>
+
+    <select id="filterSelect">
+      <option value="none">No Filter</option>
+      <!-- 100 filters dynamically added by JS -->
+    </select>
+
+    <input type="range" id="brightness" min="50" max="150" value="100">
+    <input type="range" id="contrast" min="50" max="150" value="100">
+
+    <button onclick="applyFilter()">Apply Filter</button>
+    <button onclick="startCrop()">Crop</button>
+    <button onclick="downloadImage()">Download Image</button>
+    <button onclick="resetCanvas()">Reset</button>
+  </div>
+
+  <script>
+    const upload = document.getElementById('upload');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const filterSelect = document.getElementById('filterSelect');
+
+    let image = new Image();
+    let originalImageData;
+    let cropStart = null;
+    let cropping = false;
+
+    const cssFilters = [
+      "grayscale(1)", "sepia(1)", "invert(1)", "blur(2px)", "brightness(1.2)",
+      "contrast(1.5)", "saturate(2)", "hue-rotate(90deg)", "opacity(0.7)", "drop-shadow(2px 2px 2px #000)",
+    ];
+
+    // Generate 100 filter options
+    for (let i = 1; i <= 100; i++) {
+      let f = cssFilters[i % cssFilters.length];
+      let name = `Filter ${i} (${f})`;
+      let opt = document.createElement('option');
+      opt.value = f;
+      opt.textContent = name;
+      filterSelect.appendChild(opt);
+    }
+
+    upload.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        image.src = evt.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    image.onload = () => {
+      canvas.width = image.width;
+      canvas.height = image.height;
+      ctx.drawImage(image, 0, 0);
+      originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    };
+
+    function applyFilter() {
+      ctx.putImageData(originalImageData, 0, 0);
+
+      const filter = filterSelect.value;
+      const brightness = parseInt(document.getElementById('brightness').value);
+      const contrast = parseInt(document.getElementById('contrast').value);
+
+      ctx.filter = `${filter} brightness(${brightness}%) contrast(${contrast}%)`;
+      ctx.drawImage(canvas, 0, 0);
+      ctx.filter = 'none';
+    }
+
+    function startCrop() {
+      alert("Drag on the image to select crop area.");
+
+      let rect = canvas.getBoundingClientRect();
+      let startX, startY, endX, endY;
+
+      function onMouseDown(e) {
+        startX = e.clientX - rect.left;
+        startY = e.clientY - rect.top;
+        cropping = true;
+      }
+
+      function onMouseUp(e) {
+        if (!cropping) return;
+        endX = e.clientX - rect.left;
+        endY = e.clientY - rect.top;
+        crop(startX, startY, endX, endY);
+        canvas.removeEventListener('mousedown', onMouseDown);
+        canvas.removeEventListener('mouseup', onMouseUp);
+        cropping = false;
+      }
+
+      canvas.addEventListener('mousedown', onMouseDown);
+      canvas.addEventListener('mouseup', onMouseUp);
+    }
+
+    function crop(x1, y1, x2, y2) {
+      const x = Math.min(x1, x2);
+      const y = Math.min(y1, y2);
+      const w = Math.abs(x2 - x1);
+      const h = Math.abs(y2 - y1);
+
+      const cropped = ctx.getImageData(x, y, w, h);
+      canvas.width = w;
+      canvas.height = h;
+      ctx.putImageData(cropped, 0, 0);
+      originalImageData = ctx.getImageData(0, 0, w, h);
+    }
+
+    function downloadImage() {
+      const a = document.createElement('a');
+      a.download = "ai-edited-image.png";
+      a.href = canvas.toDataURL();
+      a.click();
+    }
+
+    function resetCanvas() {
+      ctx.putImageData(originalImageData, 0, 0);
+      document.getElementById('brightness').value = 100;
+      document.getElementById('contrast').value = 100;
+      filterSelect.value = "none";
+    }
+  </script>
+</body>
 </html>
